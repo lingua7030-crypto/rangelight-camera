@@ -1,0 +1,48 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild -version
+
+      - name: Build without signing
+        run: |
+          xcodebuild \
+            -project Rangelight.xcodeproj \
+            -scheme Rangelight \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/Rangelight.app Payload/
+          zip -qry Rangelight.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Rangelight-ipa
+          path: Rangelight.ipa
+          retention-days: 14
